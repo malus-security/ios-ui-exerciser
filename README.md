@@ -45,7 +45,7 @@ $ ./Scripts/bootstrap.sh -d
 
 As we can observe from picture below we need to replace the Bundle Identifier with a unique one. This step should be done for **"WebDriverAgentLib"** and **"IntegrationApp"**. Select the team as you personal team (using personal Apple Developer Account). This modification can be done under **Signing & Capabilities** tab. Moreover, double check if under **Build Setting - Packaging - Product Bundle Identifier** the modification is visible. If not, there should also be modified.
 
-
+![Image of Xcode](https://github.com/malus-security/ios-ui-exerciser/blob/master/webDriverAgent.png)
 
 The last step is to connect the iPhone to the computer and run the command:
 ```
