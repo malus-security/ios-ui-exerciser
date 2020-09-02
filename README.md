@@ -23,7 +23,7 @@ $ pip install -U pytest
 $ brew install carthage
 ```
 
-### Step 3: Prepare setup for WebDriverAgent
+#### Step 3: Prepare setup for WebDriverAgent
 
 This step is very important in order to be able to communicate with a physical device. For testing in simulator this step in not required.
 
