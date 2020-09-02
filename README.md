@@ -49,7 +49,7 @@ As we can observe from picture below we need to replace the Bundle Identifier wi
 
 The last step is to connect the iPhone to the computer and run the command:
 ```
-$ xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination 'id=your iPhone UUID here' test -allowProvisioningUpdates
+$ xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination 'id=your iPhone UDID here' test -allowProvisioningUpdates
 ```
 
 Everytime on screen appears the prompt with giving access we need to provide. Now we should be able to see the app WebDriverAgent on the phone. In order to use the app we should go into phone setting and trust us as developer.
