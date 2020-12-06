@@ -1,84 +1,68 @@
-# README for new_iphone_script.py
+# ios-ui-exerciser
+UI Exerciser for iOS Apps
 
-## Disclaimer: This isn't by far a finished product! Use at your own risk!
+## Setup
 
-### Script Description
+#### Step 1: Installing Appium
 
-The script gets the XML source code and starts parsing the hierarchy for
-XCUIElementTypeButton elements. It then taps every buttons found and creates
-a dictionary a.k.a a rough overview of the application under test.
+This can be done in 2 ways. From terminal or installing the GUI from ".dmg" app.
 
-The dictionary structure is as follows:
+Here is the link for GUI:
+https://github.com/appium/appium-desktop/releases/tag/v1.6.3
 
+The terminal command is:
 ```
-screens : {
-        'screen_hash' : {
-                'buttons' : [],
-                'next_buttons' : [(presssed_button, placeholder)]
-        }
-}
+$ npm install -g appium
 ```
 
-The script is currently configured to test the iOS Google Chrome App, but after
-refining, it should be able to test any application.
+#### Step 2: Installing the Appium Python Client and other dependencies
+```
+$ brew install python
+$ pip install Appium-Python-Client
+$ pip install -U pytest
+$ brew install carthage
+```
 
-**buttons** is a list of all the buttons from a screen, while next_buttons is a list
-of only the buttons that trigger a screen change.
+#### Step 3: Prepare setup for WebDriverAgent
 
-To test for a screen change, the script stores the md5 hash of screen's XML source
-code and after a button press it checks it against the hash of the current screen.
+This step is very important in order to be able to communicate with a physical device. For testing in simulator this step in not required.
 
-**next_buttons** is a list of all the buttons from a screen that have triggered
-a screen change. The idea was to use this to get out of a situation where we have
-no new buttons to press, but due to limitations of hashing XML source code for
-a unique identifier, screens that look the same to a human, the script sees as
-different. This leads to screens with identical *buttons* and *next_buttons* list
-and reaches a loop.
+At first we need to look into this path:
+```
+Applications/Appium.app/Contents/Resources/app/node_modules/appium/node_modules/appium-webdriveragent 
+```
 
-*placeholder* is currently just a 0, in the future this should be filled with the
-screen we arrived in.
-***
-### Script Logic
+Here is the app that should help us communicate with the device. After openning the "WebDriverAgent.xcodeproj" into Xcode there are a couple of modifications that should be done.
 
-***Before running the script I recommend turning on do not disturb mode!***  
-Check known issues as to why.
+Before oppening the project into Xcode there are some commands that should be runned. The terminal commands are:
+```
+$ cd /Applications/Appium.app/Contents/Resources/app/node_modules/appium/node_modules/appium-webdriveragent
 
-After parsing the source code, the script taps the first unpressed button in the
-current screen and checks for a screen change. If the screen has changed, it
-requests a re-parsing of the page and breaks the current sequence.
+$ mkdir -p Resources/WebDriverAgent.bundle 
 
-Each screen has a time quota allocated for parsing (currently hardcoded at 20s).
-After this has been exceeded, the script tries randomly tapping previously found
-buttons to exit the current state. After successfully arriving in a new screen,
-the sequential parsing of the XML source code is resumed.
+$ ./Scripts/bootstrap.sh -d
+```
 
-Every time a button tap triggers a keyboard pop-up, the script uses a
-quick-and-dirty function to input a random string of 8 characters 25% of the time.
+As we can observe from picture below we need to replace the Bundle Identifier with a unique one. This step should be done for **"WebDriverAgentLib"** and **"IntegrationApp"**. Select the team as you personal team (using personal Apple Developer Account). This modification can be done under **Signing & Capabilities** tab. Moreover, double check if under **Build Setting - Packaging - Product Bundle Identifier** the modification is visible. If not, there should also be modified.
 
-### Known Issues
-        1. The script sometimes tries accessing random elements from empty sequences
-        due to faulty population of the dictionary in longer test runs;
+![Image of Xcode](https://github.com/malus-security/ios-ui-exerciser/blob/master/webDriverAgent.png)
 
-        2. The script sometimes hangs after entering the Google Account settings
-        screen and trying to tap a 'chevron' button;
+The last step is to connect the iPhone to the computer and run the command:
+```
+$ xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination 'id=your iPhone UDID here' test -allowProvisioningUpdates
+```
 
-        3. After entering a text and arriving on aa search result screen, the script
-        taps the 'Google Account: <Login Name> (<google_email_address>)' several
-        times;
+Everytime on screen appears the prompt with giving access we need to provide. Now we should be able to see the app WebDriverAgent on the phone. In order to use the app we should go into phone setting and trust us as developer.
 
-        4. When a search results page is not fully loaded due to slow internet speed,
-        a "Not found Key" error is encountered. I suspect this is due to the XML
-        page source not being complete, but still need to do some investigating;
+#### Step 4: Creating and running the script
 
-        5. The script is in dire need of code refactoring and optimisation.
+At this point Appium should be running before running the script. Inside the script there are some essential characteristics that need to be provided as platform name, platform version, udid, device name and bundle ID of the app we want to test.
 
-### Currently Found Appium Limitations
-        1. The driver_find_elements_by_class_name selector cannot be used since
-        it produces false positives. This means that when a screen is presented
-        on top of another, a list of buttons from both screens is returned. Further
-        investigation is needed as to why;
+Running the script: 
+```
+$ python script.py
+```
 
-        2. If a notification is received during tests, an "Element not found"
-        error is received when trying to perform a tap, although the element name
-        has been parsed from the page's XML source. I suspect this happens for the
-        find_element_by_name function call;
+
+## Demo
+[Here](https://drive.google.com/file/d/1dj5aM1v_g4M6NWlz2ZsaQmfoR-7GfgBB/view?usp=sharing) is a link for demo on how to test some basic actions on a real device.

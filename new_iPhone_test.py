@@ -5,11 +5,11 @@ from appium import webdriver
 from time import sleep
 from appium.webdriver.common.touch_action import TouchAction
 
-import xml.etree.ElementTree as ET
 import hashlib
 import time
 import random
 import string
+import uuid
 
 class LoginTests(unittest.TestCase):
 
@@ -28,42 +28,28 @@ class LoginTests(unittest.TestCase):
 	def tearDown(self):
 		self.driver.quit()
 
+	# simple function to return the md5 hash of a string
+
+	def hashinshin(self, to_hash):
+		return hashlib.md5(str(to_hash).encode()).hexdigest()
+
+	# function to check if screen has changed using hashing
+
+	def has_screen_changed(self):
+		new_xml_hash = self.hashinshin(self.driver.
+			find_elements_by_class_name(self.random_interest_class))
+
+		if new_xml_hash != self.current_button_list_hash:
+			return True
+
+		return False
+
 	# function that returns a random string of fixed length
 
 	def get_random_string(self, length):
 		letters = string.ascii_letters
 		result_string = ''.join(random.choice(letters) for i in range(length))
 		return result_string
-
-	# simple function to return the md5 hash of a string
-
-	def hashinshin(self, to_hash):
-		return hashlib.md5(to_hash.encode()).hexdigest()
-
-	# function to check if screen has changed using hashing
-
-	def has_screen_changed(self):
-		new_xml_hash = self.hashinshin(self.driver.page_source)
-
-		if new_xml_hash != self.current_xml_page_source_hash:
-			return True
-
-		return False
-
-	# check if element can be pressed to avoid trigerring error
-
-	def can_press_button(self, element_name):
-		try:
-			self.driver.find_element_by_accessibility_id(element_name)
-			return True
-		except Exception as e:
-			return False
-
-	# reset the current page and current page's hash
-
-	def reparse(self):
-		self.current_xml_page_source = self.driver.page_source
-		self.current_xml_page_source_hash = self.hashinshin(self.current_xml_page_source)
 
 	# hacky function to decide text should be sent
 
@@ -78,108 +64,201 @@ class LoginTests(unittest.TestCase):
 
 		return False
 
-	def test(self):
+	# setup a new dictionary structure
 
-		needs_reparse = True
-		screens = {}
+	def setup_screen_dict(self):
+
+		# initialise new screen dict
+
+		if self.screens.get(self.current_button_list_hash) is None:
+			self.screens[self.current_button_list_hash] = {}
+
+		# initialize new button list for the dict
+
+		if self.screens[self.current_button_list_hash].get('buttons') is None:
+			self.screens[self.current_button_list_hash]['buttons'] = []
+
+		# initialize transition list for the dict
+
+		if self.screens[self.current_button_list_hash].get('next_buttons') is None:
+			self.screens[self.current_button_list_hash]['next_buttons'] = []
+
+	# perform an action on an element and do the necessary associacions
+
+	def perform_action_on(self, element):
+
+		element_name = self.set_element_name_for(element)
+
+		# add button to visited buttons for the current screen list
+
+		self.screens[self.current_button_list_hash]['buttons'].append(element_name)
+
+		# tap the element
+
+		actions = TouchAction(self.driver)
+		actions.tap(element)
+		actions.perform()
+
+		# leave some time for button action to happen
+
+		sleep(2)
+
+		# check if keyboard is shown and send keys 25% of the time
+
+		if self.should_send_text():
+			string_to_send = self.get_random_string(8)
+			element.send_keys(string_to_send + "\n")
+
+		# check if the screen changed
+		# hacky solution: check if the hash of the button list differs
+
+		self.needs_reparse = self.has_screen_changed()
+
+		if self.needs_reparse:
+
+			# add tapped button to list of next_buttons for the current screen
+			# 0 -> placeholder for the next screen we get into
+			# should be (next_button, screen_it_leads_to)
+
+			self.screens[self.current_button_list_hash]['next_buttons'].append([element_name, 0])
+			print(self.screens)
+
+		# bump wait time
+
+		self.timeout = time.time() + 25 # s
+
+
+	# reset the current page and current page's hash
+
+	def reparse(self):
+		self.current_button_list = self.driver.find_elements_by_class_name(self.random_interest_class)
+		self.current_button_list_hash = self.hashinshin(self.current_button_list)
+
+		# after a reparsing, set marker to false
+
+		self.needs_reparse = False
+
+		# after reparsing, reset visited classes of interest
+
+		self.reset_classes_of_interest()
+
+	def reset_classes_of_interest(self):
+		for class_of_interest in self.classes_of_interest:
+			class_of_interest[1] = False;
+
+	# set element name if none provided in the app
+
+	def set_element_name_for(self, element):
+
+		element_name = element.get_attribute('name')
+
+		if not element_name:
+			element_name = str(uuid.uuid4())
+
+		return element_name
+
+	# start of the actual script
+
+	def testGetElements(self):
+
+		self.needs_reparse = True
+		self.screens = {}
+
+		self.classes_of_interest = [
+		["XCUIElementTypeButton", False],
+		["XCUIElementTypeCell", False],
+		["XCUIElementTypeLink", False],
+		["XCUIElementTypeImage", False],
+		["XCUIElementTypeStaticText",False],
+		["XCUIElementTypeKey", False],
+		]
 
 		# set max time to wait before pressing random buttons
 
-		timeout = time.time() + 20; # s
+		self.timeout = time.time() + 25; # s
 
 		while True:
+			# get random class of items of interest
 
-			# get source and hash for new screen if needed
+			random_interest_class_pair = random.choice(self.classes_of_interest)
 
-			if needs_reparse:
+			self.random_interest_class = random_interest_class_pair[0]
+
+			# check if the current class has already been visited
+
+			if random_interest_class_pair[1]:
+				continue
+
+			# mark class as visited for the current screen
+
+			random_interest_class_pair[1] = True
+
+			print('Current interest class is: ' + self.random_interest_class)
+
+			# get a list of all the elements of interest (visible and invisible) on the screen
+
+			elements = self.driver.find_elements_by_class_name(self.random_interest_class)
+
+			# leave time to receive response from Appium with element list
+
+			sleep(3)
+
+			# get source and hash for list of buttons on screen if needed
+
+			if self.needs_reparse:
 				self.reparse()
-				needs_reparse = False
 
-			# after script ran out of buttons to press check if it exceeds wait time
+			# setup the dictionary
+
+			self.setup_screen_dict()
+
+			# if script takes too long to press button check if it exceeds wait time
 			# and press random button
 
-			if time.time() > timeout:
+			if time.time() > self.timeout:
 
-				# get random next_button and check if it can be pressed
+				# check if for some reason there are no buttons in current screen
 
-				random_screen = random.choice(list(screens.keys()))
-
-				# if the random screen we chose does not have a list of buttons yet
-
-				if screens[random_screen].get('buttons') is None:
+				if len(self.current_button_list) == 0:
+					print('Nothing to press. Panicking!')
 					break;
 
-				random_element_name = random.choice(screens[random_screen]['buttons'])
+				# get random element_name from interest list and check if it can be pressed
+
+				selected_class = random.choice([visited for visited in self.classes_of_interest if not visited[1]])
+
+				print('Selecting random unvisited class: ' + selected_class[0])
+
+				random_element_list = self.driver.find_elements_by_class_name(selected_class[0])
+
+				random_element = random.choice(random_element_list)
+
+				random_element_name = self.set_element_name_for(random_element)
 
 				print('Tapping random button: ' + random_element_name)
 
-				if self.can_press_button(random_element_name):
+				# check if element is visible
 
-					# add button to visited buttons for the current screen list
+				if random_element.is_displayed():
 
-					screens[self.current_xml_page_source_hash]['buttons'].append(random_element_name)
+					self.perform_action_on(random_element)
 
-					# tap the element
+				continue
 
-					element = self.driver.find_element_by_accessibility_id(random_element_name)
-					actions = TouchAction(self.driver)
-					actions.tap(element)
-					actions.perform()
+			for element in elements:
 
-					# leave some time for button action to happen
+				element_name = self.set_element_name_for(element)
 
-					sleep(2)
+				# check if element is visible
 
-					# check if keyboard is shown and send keys 25% of the time
-
-					if self.should_send_text():
-						string_to_send = self.get_random_string(8)
-						element.send_keys(string_to_send + "\n")
-
-					# force reparsing of screen
-
-					needs_reparse = True
-
-					screens[self.current_xml_page_source_hash]['next_buttons'].append([random_element_name, 0])
-
-					# bump wait time
-
-					timeout = time.time() + 20 # s
-
-					continue
-
-			# initialise new screen dict
-
-			if screens.get(self.current_xml_page_source_hash) is None:
-				screens[self.current_xml_page_source_hash] = {}
-
-			# initialize new button list for the dict
-
-			if screens[self.current_xml_page_source_hash].get('buttons') is None:
-				screens[self.current_xml_page_source_hash]['buttons'] = []
-
-			# initialize transition list for the dict
-
-			if screens[self.current_xml_page_source_hash].get('next_buttons') is None:
-				screens[self.current_xml_page_source_hash]['next_buttons'] = []
-
-			root = ET.fromstring(self.current_xml_page_source)
-
-			# search for all interactable buttons
-
-			for elem in root.iter('XCUIElementTypeButton'):
-				element_name = elem.attrib.get('name')
-
-				# check if the button has accessibility id set
-
-				if element_name is None:
+				if not element.is_displayed():
 					continue
 
 				# check if the button has already been explored
 				# TODO: Pretify the check
 
 				tapped = 0;
-				for key, value in screens.items():
+				for key, value in self.screens.items():
 
 					if element_name in value['buttons']:
 						tapped = 1
@@ -190,46 +269,12 @@ class LoginTests(unittest.TestCase):
 
 				print("Now Tapping: " + element_name)
 
-				# tap button if possible
-				if self.can_press_button(element_name):
-					# add button to visited buttons for the current screen list
+				self.perform_action_on(element)
 
-					screens[self.current_xml_page_source_hash]['buttons'].append(element_name)
+				# if current screen needs reparsing then we dont need to check
+				# the other buttons
 
-					element = self.driver.find_element_by_accessibility_id(element_name)
-
-					actions = TouchAction(self.driver)
-					actions.tap(element)
-					actions.perform()
-
-					# leave some time for button action to happen
-
-					sleep(2)
-
-					# bump timeout for the screen
-					timeout = time.time() + 20 # s
-
-				else:
-					continue
-
-				# check if keyboard is shown and send keys 25% of the time
-
-				if self.should_send_text():
-					string_to_send = self.get_random_string(8)
-					element.send_keys(string_to_send + "\n")
-
-				# check if the screen changed and prepare to reparse xml source
-				# hacky solution: check if the xml hash differs
-
-				needs_reparse = self.has_screen_changed()
-
-				if needs_reparse:
-
-					# add tapped button to list of next_buttons for the current screen
-					# 0 -> placeholder for the next screen we get into
-					# should be (next_button, screen_it_leads_to)
-
-					screens[self.current_xml_page_source_hash]['next_buttons'].append([element_name, 0])
+				if self.needs_reparse:
 
 					break
 
