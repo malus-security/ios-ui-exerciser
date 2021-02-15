@@ -10,6 +10,7 @@ import time
 import random
 import string
 import uuid
+import sys
 
 class LoginTests(unittest.TestCase):
 
@@ -19,30 +20,14 @@ class LoginTests(unittest.TestCase):
 			desired_capabilities={
 				'platformName': 'iOS',
 				'platformVersion': '14.2',
-				'udid': <Device UDID>,
-				'deviceName': <Device Name>,
+				'udid': '',
+				'deviceName': '',
 				'bundleId': 'com.google.chrome.ios'
 			}
 		)
 
 	def tearDown(self):
 		self.driver.quit()
-
-	# simple function to return the md5 hash of a string
-
-	def hashinshin(self, to_hash):
-		return hashlib.md5(str(to_hash).encode()).hexdigest()
-
-	# function to check if screen has changed using hashing
-
-	def has_screen_changed(self):
-		new_xml_hash = self.hashinshin(self.driver.
-			find_elements_by_class_name(self.random_interest_class))
-
-		if new_xml_hash != self.current_button_list_hash:
-			return True
-
-		return False
 
 	# function that returns a random string of fixed length
 
@@ -68,7 +53,7 @@ class LoginTests(unittest.TestCase):
 
 	def setup_screen_dict(self):
 
-		# initialise new screen dict
+		# initialize new screen dict
 
 		if self.screens.get(self.current_button_list_hash) is None:
 			self.screens[self.current_button_list_hash] = {}
@@ -82,6 +67,52 @@ class LoginTests(unittest.TestCase):
 
 		if self.screens[self.current_button_list_hash].get('next_buttons') is None:
 			self.screens[self.current_button_list_hash]['next_buttons'] = []
+
+		# initialize interest classes list for the dict
+
+		if self.screens[self.current_button_list_hash].get('interest_classes') is None:
+			self.screens[self.current_button_list_hash]['interest_classes'] = []
+
+	# reset the current page and current page's hash
+
+	def reparse(self):
+		self.current_button_list = self.driver.find_elements_by_class_name(self.random_interest_class)
+		self.current_button_list_hash = self.hashinshin(self.driver.
+			find_elements_by_class_name('XCUIElementTypeStaticText'))
+
+		# after a reparsing, set marker to false
+
+		self.needs_reparse = False
+
+	# set element name if none provided in the app
+
+	def set_element_name_for(self, element):
+
+		element_name = element.get_attribute('name')
+
+		if not element_name:
+			element_name = str(uuid.uuid4())
+
+		return element_name
+
+	# simple function to return the md5 hash of a string
+
+	def hashinshin(self, to_hash):
+		return hashlib.md5(str(to_hash).encode()).hexdigest()
+
+	# function to check if screen has changed using hashing
+
+	def has_screen_changed(self):
+
+		# compute hash based on button list
+
+		new_xml_hash = self.hashinshin(self.driver.
+			find_elements_by_class_name('XCUIElementTypeStaticText'))
+
+		if new_xml_hash != self.current_button_list_hash:
+			return True
+
+		return False
 
 	# perform an action on an element and do the necessary associacions
 
@@ -120,42 +151,91 @@ class LoginTests(unittest.TestCase):
 			# 0 -> placeholder for the next screen we get into
 			# should be (next_button, screen_it_leads_to)
 
-			self.screens[self.current_button_list_hash]['next_buttons'].append([element_name, 0])
-			print(self.screens)
+			current_screen_next_buttons = self.screens[self.current_button_list_hash]['next_buttons']
+
+			if not element_name in current_screen_next_buttons:
+				current_screen_next_buttons.append([element_name, 0])
 
 		# bump wait time
 
 		self.timeout = time.time() + 25 # s
 
+	# perform action on previously untapped random button
 
-	# reset the current page and current page's hash
+	def perform_action_randomly(self):
 
-	def reparse(self):
-		self.current_button_list = self.driver.find_elements_by_class_name(self.random_interest_class)
-		self.current_button_list_hash = self.hashinshin(self.current_button_list)
+		# check if we haven't already visited all interest classes on this screen
 
-		# after a reparsing, set marker to false
+		unvisited_interest_classes = [visited for visited in self.classes_of_interest if not visited[1]]
 
-		self.needs_reparse = False
+		if not unvisited_interest_classes:
+			print('Everything visited here. Pressing random visited button')
 
-		# after reparsing, reset visited classes of interest
+			# get a random next button which we know will lead to a new screen
 
-		self.reset_classes_of_interest()
+			current_screen_buttons = self.screens[self.current_button_list_hash].get('next_buttons')
 
-	def reset_classes_of_interest(self):
-		for class_of_interest in self.classes_of_interest:
-			class_of_interest[1] = False;
+			# if there are no next buttons try a normal buttton
 
-	# set element name if none provided in the app
+			if not current_screen_buttons:
 
-	def set_element_name_for(self, element):
+				# if there are no visited buttons, exit with error
 
-		element_name = element.get_attribute('name')
+				if not self.screens[self.current_button_list_hash].get('buttons'):
+					sys.exit('No visited buttons to tap. Exiting... ')
 
-		if not element_name:
-			element_name = str(uuid.uuid4())
+				current_screen_buttons = self.screens[self.current_button_list_hash].get('buttons')
 
-		return element_name
+				random_visited_button_name = random.choice(current_screen_buttons)
+			else:
+				random_visited_button_name = random.choice(current_screen_buttons)[0]
+
+			print('Tapping random visited button: ' + random_visited_button_name)
+
+			random_visited_button = self.driver.find_element_by_name(random_visited_button_name)
+
+			if random_visited_button.is_displayed():
+
+				self.perform_action_on(random_visited_button)
+
+				return True
+
+			return False
+
+		# get random element_name from interest list and check if it can be pressed
+
+		selected_class = random.choice(unvisited_interest_classes)
+
+		print('Selecting random unvisited class: ' + selected_class[0])
+
+		random_element_list = self.driver.find_elements_by_class_name(selected_class[0])
+
+		# check if for some reason there are no elements in current screen list
+
+		if len(random_element_list) == 0:
+			print('Nothing to press in this class. Moving on!')
+
+			# mark current class as visited
+
+			self.screens[self.current_button_list_hash]['interest_classes'].append(self.random_interest_class)
+
+			return False
+
+		random_element = random.choice(random_element_list)
+
+		random_element_name = self.set_element_name_for(random_element)
+
+		print('Tapping random button: ' + random_element_name)
+
+		# check if element is visible
+
+		if random_element.is_displayed():
+
+			self.perform_action_on(random_element)
+
+			return True
+
+		return False
 
 	# start of the actual script
 
@@ -165,12 +245,12 @@ class LoginTests(unittest.TestCase):
 		self.screens = {}
 
 		self.classes_of_interest = [
-		["XCUIElementTypeButton", False],
-		["XCUIElementTypeCell", False],
-		["XCUIElementTypeLink", False],
-		["XCUIElementTypeImage", False],
-		["XCUIElementTypeStaticText",False],
-		["XCUIElementTypeKey", False],
+		"XCUIElementTypeButton",
+		"XCUIElementTypeCell",
+		"XCUIElementTypeLink",
+		"XCUIElementTypeImage",
+		"XCUIElementTypeStaticText",
+		# "XCUIElementTypeKey",
 		]
 
 		# set max time to wait before pressing random buttons
@@ -178,20 +258,9 @@ class LoginTests(unittest.TestCase):
 		self.timeout = time.time() + 25; # s
 
 		while True:
-			# get random class of items of interest
+			# setup random interest class
 
-			random_interest_class_pair = random.choice(self.classes_of_interest)
-
-			self.random_interest_class = random_interest_class_pair[0]
-
-			# check if the current class has already been visited
-
-			if random_interest_class_pair[1]:
-				continue
-
-			# mark class as visited for the current screen
-
-			random_interest_class_pair[1] = True
+			self.random_interest_class = random.choice(self.classes_of_interest)
 
 			print('Current interest class is: ' + self.random_interest_class)
 
@@ -212,41 +281,22 @@ class LoginTests(unittest.TestCase):
 
 			self.setup_screen_dict()
 
+			# check if the current class has already been visited
+
+			if self.random_interest_class in self.screens[self.current_button_list_hash]['interest_classes']:
+				continue
+
 			# if script takes too long to press button check if it exceeds wait time
 			# and press random button
 
 			if time.time() > self.timeout:
 
-				# check if for some reason there are no buttons in current screen
+				if not self.perform_action_randomly():
+					continue
 
-				if len(self.current_button_list) == 0:
-					print('Nothing to press. Panicking!')
-					break;
-
-				# get random element_name from interest list and check if it can be pressed
-
-				selected_class = random.choice([visited for visited in self.classes_of_interest if not visited[1]])
-
-				print('Selecting random unvisited class: ' + selected_class[0])
-
-				random_element_list = self.driver.find_elements_by_class_name(selected_class[0])
-
-				random_element = random.choice(random_element_list)
-
-				random_element_name = self.set_element_name_for(random_element)
-
-				print('Tapping random button: ' + random_element_name)
-
-				# check if element is visible
-
-				if random_element.is_displayed():
-
-					self.perform_action_on(random_element)
-
-				continue
+			# try pressing every element in succsession
 
 			for element in elements:
-
 				element_name = self.set_element_name_for(element)
 
 				# check if element is visible
@@ -255,16 +305,8 @@ class LoginTests(unittest.TestCase):
 					continue
 
 				# check if the button has already been explored
-				# TODO: Pretify the check
 
-				tapped = 0;
-				for key, value in self.screens.items():
-
-					if element_name in value['buttons']:
-						tapped = 1
-						break;
-
-				if tapped:
+				if element_name in self.screens[self.current_button_list_hash]['buttons']:
 					continue
 
 				print("Now Tapping: " + element_name)
@@ -275,8 +317,16 @@ class LoginTests(unittest.TestCase):
 				# the other buttons
 
 				if self.needs_reparse:
-
 					break
+
+			# if the screen has not changed and we passed through the entire
+			# element list for the current class
+
+			if not self.needs_reparse:
+
+				# add interest class to visited list for the current screen
+
+				self.screens[self.current_button_list_hash]['interest_classes'].append(self.random_interest_class)
 
 		self.driver.close_app()
 

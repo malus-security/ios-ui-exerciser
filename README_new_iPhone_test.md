@@ -5,13 +5,13 @@
 ### Script Description
 
 The script gets the XML source code and starts parsing the hierarchy for
-XCUIElementTypeButton elements. It then taps every buttons found and creates
+XCUIElementTypeStaticText elements. It then taps every button found and creates
 a dictionary a.k.a a rough overview of the application under test.
 
 The script selects an interest class to get all the elements from an application's
 page. It then sequentially goes through each of them and tries tapping, taking
 into account screen changes. The current goal is to go through as many screens
-s possible and to create a dictionary, a rough overview of the application under test.
+as possible and to create a dictionary, a rough overview of the application under test.
 
 The dictionary structure is as follows:
 
@@ -19,7 +19,8 @@ The dictionary structure is as follows:
 screens : {
         'screen_hash' : {
                 'buttons' : [],
-                'next_buttons' : [(presssed_button, placeholder)]
+                'next_buttons' : [(presssed_button, placeholder)],
+                'interest_classes' : []
         }
 }
 ```
@@ -39,6 +40,9 @@ no new buttons to press, but due to limitations of hashing XML source code for
 a unique identifier, screens that look the same to a human, the script sees as
 different. This leads to screens with identical *buttons* and *next_buttons* list
 and reaches a loop.
+
+**interest_classes** is a list of the completely visited classes for the current
+screen.
 
 *placeholder* is currently just a 0, in the future this should be filled with the
 screen we arrived in.
@@ -68,23 +72,18 @@ Every time a button tap triggers a keyboard pop-up, the script uses a
 quick-and-dirty function to input a random string of 8 characters 25% of the time.
 
 ### Known Issues
-        1. The script sometimes tries accessing random elements from empty sequences
-        due to faulty population of the dictionary in longer test runs;
 
-        2. The screen change detection needs improving, since it currently produces
-        false positives;
-
-        3. The script sometimes hangs after entering the Google Account settings
+        1. The script sometimes hangs after entering the Google Account settings
         screen and trying to tap a 'chevron' button;
 
-        4. When a search results page is not fully loaded due to slow internet speed,
+        2. When a search results page is not fully loaded due to slow internet speed,
         a "Not found Key" error is encountered. I suspect this is due to the XML
         page source not being complete, but still need to do some investigating;
 
-        5. The script sometimes hangs when the Appium Server calls interfere with
+        3. The script sometimes hangs when the Appium Server calls interfere with
         the time checking if statement;
 
-        5. The script is in dire need of optimisation in terms of calls made to
+        4. The script is in dire need of optimisation in terms of calls made to
         The Appium server.
 
 ### Currently Found Appium Limitations
