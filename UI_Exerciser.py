@@ -25,8 +25,8 @@ class LoginTests(unittest.TestCase):
 			desired_capabilities={
 				'platformName': 'iOS',
 				'platformVersion': '14.2',
-				'udid': '00008020-000874A02682002E',
-				'deviceName': 'Andrew\'s Xs Max',
+				'udid': '',
+				'deviceName': '',
 				'bundleId': 'com.google.chrome.ios'
 			}
 		)
