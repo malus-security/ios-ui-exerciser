@@ -1,9 +1,5 @@
 #!/bin/bash
 
-cd /Applications/Appium.app/Contents/Resources/app/node_modules/appium/node_modules/appium-webdriveragent
+UDID="id=<iPhone_UDID>"
 
-mkdir -p Resources/WebDriverAgent.bundle
-
-./Scripts/bootstrap.sh -d
-
-xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination 'id=your iphone udid here. same as in script.sh' test -allowProvisioningUpdates
+xcodebuild -project "/Applications/Appium Server GUI.app/Contents/Resources/app/node_modules/appium/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj" -scheme WebDriverAgentRunner -destination $UDID test -allowProvisioningUpdates

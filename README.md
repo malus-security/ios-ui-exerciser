@@ -25,6 +25,8 @@ $ brew install carthage
 
 #### Step 3: Prepare setup for WebDriverAgent
 
+***For the lastest version of the Appium GUI (v1.22.3-4) the package contents and the installation steps have changed. Please refer to "Installing WebDriverAgent and the latest Appium Client on MacOS" for more information***
+
 This step is very important in order to be able to communicate with a physical device. For testing in simulator this step in not required.
 
 At first we need to look into this path:
@@ -53,6 +55,26 @@ $ xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -des
 ```
 
 Everytime on screen appears the prompt with giving access we need to provide. Now we should be able to see the app WebDriverAgent on the phone. In order to use the app we should go into phone setting and trust us as developer.
+
+#### Installing WebDriverAgent and the latest Appium Client (v1.22.3-4) on MacOS
+
+Since the package contents for the Appium GUI Client have changed in the latest release, the WebDriverAgent installation steps differ.
+
+Appium does not have a paid Apple Developer account so you have to manually sign the package using 
+
+```
+xattr -cr
+```
+
+on the downloaded file. For example, if the application is *Appium GUI Server* and you copy it into *Applications* then the command you need to run is
+
+```
+xattr -cr "/Applications/Appium Server GUI.app"
+```
+
+Afterwards you can open the Appium GUI Client. After following the steps described in Step 3 you can then run the `script.sh` WebDriverAgent install script. This will install the agent onto the physical device.
+
+**Note: on the latest version of Appium Client there is no need to create a new directory with WebDriverAgent.bundle**
 
 #### Step 4: Creating and running the script
 
